@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PrimeScope — In Numeris Lux</title>
+
+<!-- Fonts (Google) -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================================
+   PrimeScope — Single-file Webapp
+   - Subtle deep-navy gradient background
+   - Antique-gold accents
+   - Splash (3.5s) -> Sign-in -> Main
+   - Collapsible left sidebar
+   - Prime generator (Worker), checker (BigInt Miller-Rabin)
+   - Visuals: Ulam spiral, Modular circle, Spiral Galaxy (art), Constellation map
+   - Charts built with canvas (no external libs)
+   - All assets in one file
+   ========================================================================= */
+
+:root{
+  --ivory: #f5efe4;
+  --navy-1: #061226;
+  --navy-2: #081733;
+  --gold: #c5a45f;
+  --muted: #9fb0bb;
+  --panel: rgba(255,255,255,0.02);
+  --card-border: rgba(197,164,95,0.08);
+  --sidebar-w: 320px;
+  --sidebar-slim: 76px;
+  --max-width: 1200px;
+  --splash-ms: 3500;
+  --trans-fast: 160ms;
+  --trans-med: 340ms;
+}
+
+/* Reset */
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter, "Playfair Display", serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{
+  color:var(--ivory);
+  background: linear-gradient(180deg,var(--navy-1), var(--navy-2));
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-y:scroll;
+}
+
+/* subtle paper grain overlay for texture */
+body::after{
+  content:"";
+  position:fixed; inset:0; pointer-events:none;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.006) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.004) 1px, transparent 1px);
+  background-size:48px 48px, 100% 2px;
+  mix-blend-mode:overlay;
+  opacity:0.5;
+}
+
+/* Page layout */
+.app { display:flex; min-height:100vh; align-items:stretch; }
+
+/* Splash */
+#splash {
+  position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:9999; transition:opacity .6s ease, transform .6s ease;
+  background: linear-gradient(180deg, rgba(4,8,16,0.98), rgba(8,17,29,0.98));
+}
+#splash.hidden{opacity:0; transform:scale(.996); pointer-events:none; visibility:hidden}
+#splash h1{font-family:"Playfair Display"; font-size:3.2rem; color:var(--gold); margin:0; letter-spacing:2px; text-shadow:0 12px 40px rgba(197,164,95,0.12)}
+#splash p{margin-top:8px;color:var(--ivory);opacity:.95;font-style:italic;font-size:1.02rem}
+
+/* Sign-in modal */
+#signin {
+  position:fixed; left:0; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
+  z-index:9980; background: rgba(1,4,8,0.46); opacity:0; visibility:hidden; transform:translateY(8px);
+  transition: opacity var(--trans-med) ease, transform var(--trans-med) ease, visibility var(--trans-med);
+}
+#signin.visible { opacity:1; visibility:visible; transform:translateY(0); }
+#signin-card{
+  width: min(760px,94vw); max-width:760px; border-radius:12px; padding:20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border:1px solid var(--card-border); box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+#signin-card h3{ margin:0; font-family:"Playfair Display"; color:var(--gold); font-size:1.4rem; }
+#signin-card p{ margin:8px 0 14px 0; color:var(--muted); }
+
+/* Sidebar */
+.sidebar{
+  position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+  border-right:1px solid var(--card-border); padding:20px 14px; display:flex; flex-direction:column; gap:12px;
+  box-shadow:8px 0 36px rgba(0,0,0,0.5); z-index:80; transition: width var(--trans-fast) ease;
+}
+.sidebar.slim { width:var(--sidebar-slim); }
+.brand { display:flex; gap:12px; align-items:center; }
+.logo { width:56px; height:56px; border-radius:10px; background: linear-gradient(135deg, var(--gold), #b38934); display:flex; align-items:center; justify-content:center; color:#041018; font-weight:800; font-family:"Playfair Display"; font-size:18px; box-shadow:0 6px 16px rgba(0,0,0,0.35); }
+.brand h2{ margin:0; font-size:1.05rem; color:var(--ivory); }
+.brand p{ margin:0; color:var(--muted); font-size:0.82rem; }
+
+/* navigation */
+.navlist{ display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+.navbtn{ background:transparent; border:none; color:var(--ivory); text-align:left; padding:10px 12px; border-radius:8px; cursor:pointer; font-family:Inter; font-size:0.98rem; transition: all .12s; }
+.navbtn:hover{ background: rgba(197,164,95,0.06); color:var(--gold); transform: translateX(4px); }
+.navbtn.active{ background: linear-gradient(90deg, rgba(197,164,95,0.12), rgba(197,164,95,0.04)); color:var(--gold); font-weight:700; }
+
+/* bottom area */
+.sidebar .bottom{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+.collapse-btn{ padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); background:transparent; color:var(--muted); cursor:pointer; }
+
+/* Main area */
+.main{ flex:1; margin-left:var(--sidebar-w); padding:28px; min-height:100vh; transition: margin-left var(--trans-fast) ease; }
+.main.slim { margin-left:var(--sidebar-slim); }
+.container{ max-width:var(--max-width); margin:0 auto; }
+
+/* topbar */
+.topbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+.topbar .title{ font-family:"Playfair Display"; font-size:1.05rem; color:var(--gold); }
+.topbar .user{ color:var(--muted); font-size:0.95rem; }
+
+/* pages and panels */
+.page{ display:none; opacity:0; transform:translateY(6px); transition: all .26s ease; }
+.page.active{ display:block; opacity:1; transform:none; }
+
+/* hero layout */
+.home-hero{ display:grid; grid-template-columns: 1fr 380px; gap:20px; align-items:start; }
+@media (max-width:980px){ .home-hero{ grid-template-columns:1fr } .main{ margin-left:var(--sidebar-w); padding:18px } }
+
+/* cards */
+.card { padding:14px; border-radius:12px; background:var(--panel); border:1px solid rgba(255,255,255,0.02); }
+.cards{ display:grid; grid-template-columns: repeat(2,1fr); gap:14px; margin-top:16px; }
+@media (max-width:720px){ .cards{ grid-template-columns:1fr } }
+.card h4{ margin:0; color:var(--gold) }
+.card p{ margin-top:8px; color:var(--muted) }
+
+/* forms and tables */
+.form-row{ display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+input[type="text"], input[type="number"], select{ padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); background:transparent; color:var(--ivory); min-width:0; }
+
+/* sample table */
+.table{ width:100%; margin-top:12px; border-collapse:collapse; color:var(--ivory); }
+.table th{ text-align:left; color:var(--muted); font-size:0.88rem; padding:8px 6px; }
+.table td{ padding:8px 6px; border-top:1px solid rgba(255,255,255,0.02); font-size:0.95rem; }
+
+/* viz area */
+.viz-area{ margin-top:12px; border-radius:12px; padding:12px; background:var(--panel); border:1px solid rgba(255,255,255,0.02); min-height:460px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+.viz-controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+
+/* footer */
+.footer{ margin-top:22px; color:var(--muted); text-align:center; font-size:0.9rem; }
+
+/* collapse styles */
+.sidebar.collapsed{ width: var(--sidebar-slim) !important; }
+.main.collapsed{ margin-left: var(--sidebar-slim) !important; }
+.sidebar.collapsed .navbtn{ display:none; }
+.sidebar.collapsed .brand h2, .sidebar.collapsed .brand p, .sidebar.collapsed .bottom { display:none; }
+
+/* helpers */
+.hidden{ display:none !important; }
+.small{ font-size:0.86rem; color:var(--muted); }
+
+/* responsive */
+@media (max-width:520px){
+  :root{ --sidebar-w:260px }
+  .logo{ width:48px; height:48px }
+  .viz-area{ min-height:300px }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== SPLASH ========== -->
+<div id="splash" role="dialog" aria-label="Welcome splash">
+  <h1>PRIMESCOPE</h1>
+  <p>In Numeris Lux</p>
+</div>
+
+<!-- ========== SIGN-IN ========== -->
+<div id="signin" role="dialog" aria-label="Sign-in modal">
+  <div id="signin-card">
+    <h3>Welcome</h3>
+    <p class="small">Type your full name — only your first name will be shown. Stored locally on this device.</p>
+    <form id="signin-form" autocomplete="name" novalidate>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <input id="signin-name" name="fullname" type="text" placeholder="Full name (e.g., Japheth Odame Boamah)" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--ivory)" />
+        <button id="signin-submit" type="submit" style="padding:10px 14px;border-radius:8px;background:var(--gold);color:#041018;border:none">Continue</button>
+      </div>
+    </form>
+    <div style="margin-top:12px;color:var(--muted);font-size:0.9rem">You can change this later from the sidebar.</div>
+  </div>
+</div>
+
+<!-- ========== APP ========== -->
+<div class="app" role="application" aria-live="polite">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar" role="navigation" aria-label="Main sidebar">
+    <div class="brand">
+      <div class="logo">PS</div>
+      <div>
+        <h2>PrimeScope</h2>
+        <p>In Numeris Lux</p>
+      </div>
+    </div>
+
+    <nav class="navlist" aria-label="Primary navigation">
+      <button class="navbtn active" data-page="home">Home</button>
+      <button class="navbtn" data-page="checker">Prime Checker</button>
+      <button class="navbtn" data-page="generator">Prime Generator</button>
+      <button class="navbtn" data-page="visuals">Visuals</button>
+      <button class="navbtn" data-page="analysis">Analysis</button>
+      <button class="navbtn" data-page="about">About</button>
+    </nav>
+
+    <div class="bottom">
+      <div id="sessionName" style="color:var(--muted);font-size:0.95rem">—</div>
+      <button id="collapseBtn" class="collapse-btn" aria-expanded="false">Collapse</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="main" class="main">
+    <div class="container">
+      <div class="topbar">
+        <div>
+          <div class="title">PrimeScope</div>
+          <div class="small">Explore & visualize prime numbers</div>
+        </div>
+        <div id="userTag" class="user">—</div>
+      </div>
+
+      <!-- PAGES -->
+
+      <!-- HOME -->
+      <section id="page-home" class="page active">
+        <div class="home-hero">
+          <div class="card hero-left">
+            <h1 id="heroTitle">Primes — discovery, proof, beauty</h1>
+            <p id="greetingText" class="small">Generate, test and visualize prime patterns. Choose 'Visuals' for artistic views and 'Analysis' for data-driven charts.</p>
+
+            <div class="cards">
+              <div class="card">
+                <h4>Quick Checker</h4>
+                <p class="small">Enter a number and test primality.</p>
+                <div class="form-row">
+                  <input id="mini-check" type="text" placeholder="e.g., 101" />
+                  <button id="mini-check-btn" style="background:var(--gold);color:#041018;padding:8px 10px;border-radius:8px">Check</button>
+                </div>
+                <div id="mini-check-res" class="small" style="margin-top:8px;color:var(--muted)"></div>
+              </div>
+
+              <div class="card">
+                <h4>Quick Generate</h4>
+                <p class="small">Quick worker-based sieve (non-blocking).</p>
+                <div class="form-row">
+                  <input id="mini-gen" type="number" placeholder="Max N (e.g., 20000)" />
+                  <button id="mini-gen-btn" style="background:var(--gold);color:#041018;padding:8px 10px;border-radius:8px">Go</button>
+                </div>
+                <div id="mini-gen-res" class="small" style="margin-top:8px;color:var(--muted)"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px;color:var(--muted)" class="small">Tip: On phones keep Max N ≤ 200k. Desktop supports larger N. For artful visuals, open Visuals after generation.</div>
+          </div>
+
+          <aside class="card hero-card" style="min-width:260px;">
+            <h3>Summary</h3>
+            <div style="margin-top:10px;color:var(--muted);font-size:0.95rem">
+              <div id="statCount">Primes: —</div>
+              <div id="statLargest" style="margin-top:6px">Largest: —</div>
+              <div id="statAvg" style="margin-top:6px">Avg gap: —</div>
+            </div>
+
+            <div style="margin-top:14px">
+              <button id="open-generator" style="width:100%;padding:10px;border-radius:8px;background:var(--gold);color:#041018">Open Generator</button>
+              <button id="open-visuals" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--gold)">Open Visuals</button>
+            </div>
+          </aside>
+        </div>
+
+        <div style="margin-top:18px" class="small">“In Numeris Lux” — In numbers, light.</div>
+      </section>
+
+      <!-- PRIME CHECKER -->
+      <section id="page-checker" class="page" aria-hidden="true">
+        <h2>Prime Checker</h2>
+        <p class="small">Deterministic Miller–Rabin using BigInt. Paste large integers if you like.</p>
+        <div class="card" style="margin-top:12px;">
+          <div class="form-row">
+            <input id="check-input" type="text" placeholder="e.g., 1234567890123456789" />
+            <button id="check-btn" style="background:var(--gold);color:#041018;padding:10px 12px;border-radius:8px">Check</button>
+          </div>
+          <div id="check-result" style="margin-top:12px;font-weight:700"></div>
+        </div>
+      </section>
+
+      <!-- GENERATOR -->
+      <section id="page-generator" class="page" aria-hidden="true">
+        <h2>Prime Generator</h2>
+        <p class="small">Pick a method and generate up to Max N. Runs inside a Web Worker so UI remains smooth.</p>
+        <div class="card" style="margin-top:12px;">
+          <div class="form-row">
+            <input id="max-n" type="number" placeholder="Max N (e.g., 50000)" />
+            <select id="method-select" style="min-width:160px;padding:10px;border-radius:8px">
+              <option value="eratosthenes">Eratosthenes</option>
+              <option value="atkin">Atkin (experimental)</option>
+            </select>
+            <button id="gen-btn" style="background:var(--gold);color:#041018;padding:10px 12px;border-radius:8px">Generate</button>
+          </div>
+
+          <div id="gen-status" class="small" style="margin-top:12px;color:var(--muted)">Idle</div>
+
+          <div style="margin-top:12px">
+            <div style="font-weight:700">Sample primes</div>
+            <table class="table" id="sample-table"><thead><tr><th>#</th><th>Prime</th></tr></thead><tbody></tbody></table>
+          </div>
+
+          <div class="form-row" style="margin-top:12px">
+            <button id="export-csv" style="background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--gold);padding:10px;border-radius:8px">Export CSV</button>
+            <div style="flex:1"></div>
+            <button id="clear-primes" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;color:var(--muted)">Clear</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISUALS -->
+      <section id="page-visuals" class="page" aria-hidden="true">
+        <h2>Visuals</h2>
+        <p class="small">Artistic & analytical visualizations. Render after generating primes for the richest output.</p>
+
+        <div class="card" style="margin-top:12px;">
+          <div class="viz-controls">
+            <label style="display:flex;align-items:center;gap:8px">
+              <strong style="color:var(--muted)">View</strong>
+              <select id="viz-mode" style="padding:8px;border-radius:8px">
+                <option value="ulam">Ulam Spiral</option>
+                <option value="modular">Modular Circle</option>
+                <option value="spiral">Spiral Galaxy (art)</option>
+                <option value="constellation">Constellation Map</option>
+              </select>
+            </label>
+
+            <label style="display:flex;align-items:center;gap:8px">
+              <span class="small">Scale</span>
+              <input id="viz-scale" type="range" min="60" max="400" value="160">
+            </label>
+
+            <label style="display:flex;align-items:center;gap:8px">
+              <span class="small">Speed</span>
+              <input id="viz-speed" type="range" min="0" max="2" step="0.05" value="0.6">
+            </label>
+
+            <label style="display:flex;align-items:center;gap:8px">
+              <input id="viz-twins" type="checkbox" checked /> <span class="small">Highlight twins</span>
+            </label>
+
+            <button id="render-viz" style="background:var(--gold);color:#041018;padding:8px 12px;border-radius:8px">Render</button>
+            <button id="download-viz" style="background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--gold);padding:8px;border-radius:8px">Download PNG</button>
+          </div>
+
+          <div id="viz-area" class="viz-area" aria-live="polite">
+            <div style="color:var(--muted)">Render a visualization (Ulam/Modular/Spiral/Constellation) after generating primes.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANALYSIS (charts & density) -->
+      <section id="page-analysis" class="page" aria-hidden="true">
+        <h2>Analysis</h2>
+        <p class="small">Charts: prime gap histogram and density over intervals. Uses canvas for fast rendering.</p>
+        <div class="card" style="margin-top:12px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:300px">
+              <div style="font-weight:700">Prime Gap Histogram</div>
+              <canvas id="gap-canvas" width="800" height="300" style="width:100%;height:200px;border-radius:8px;background:transparent;margin-top:8px"></canvas>
+            </div>
+            <div style="flex:1;min-width:300px">
+              <div style="font-weight:700">Prime Density</div>
+              <canvas id="density-canvas" width="800" height="300" style="width:100%;height:200px;border-radius:8px;background:transparent;margin-top:8px"></canvas>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="small">Generate primes then visit Analysis to compute charts. Charts scale to your viewport.</div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section id="page-about" class="page" aria-hidden="true">
+        <h2>About</h2>
+        <div class="card" style="margin-top:12px;">
+          <div style="font-weight:700">PrimeScope</div>
+          <div style="margin-top:8px;color:var(--muted)">A self-contained offline-friendly tool to explore prime numbers visually and analytically. All computation is done locally in your browser.</div>
+        </div>
+      </section>
+
+      <div class="footer">© 2025 PrimeScope — In Numeris Lux</div>
+    </div>
+  </main>
+</div>
+
+<!-- ================= JAVASCRIPT ================= -->
+<script>
+/*
+  PrimeScope - single-file JS
+  - splash -> signin -> main flow
+  - sidebar collapse
+  - worker-based sieve (eratosthenes/atkin)
+  - deterministic Miller-Rabin BigInt checker
+  - visuals: Ulam spiral, modular circle, spiral galaxy (art), constellation
+  - analysis charts: gap histogram & density map (canvas)
+  - exports: CSV + PNG
+*/
+
+/* Wrap everything to avoid polluting global scope */
+(function(){
+  // --- constants & state ---
+  const SPLASH_MS = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--splash-ms')) || 3500;
+  const NAME_KEY = 'primeScope_user_v1';
+  let primes = [];        // array of primes generated
+  let worker = null;      // web worker
+  let vizAnim = null;     // animation token
+
+  // --- elements ---
+  const splash = document.getElementById('splash');
+  const signin = document.getElementById('signin');
+  const signinForm = document.getElementById('signin-form');
+  const signinName = document.getElementById('signin-name');
+  const signinSubmit = document.getElementById('signin-submit');
+
+  const sidebar = document.getElementById('sidebar');
+  const collapseBtn = document.getElementById('collapseBtn');
+  const sessionName = document.getElementById('sessionName');
+  const userTag = document.getElementById('userTag');
+
+  const navBtns = document.querySelectorAll('.navbtn');
+  const pages = {
+    home: document.getElementById('page-home'),
+    checker: document.getElementById('page-checker'),
+    generator: document.getElementById('page-generator'),
+    visuals: document.getElementById('page-visuals'),
+    analysis: document.getElementById('page-analysis'),
+    about: document.getElementById('page-about'),
+  };
+
+  // home quick
+  const miniCheck = document.getElementById('mini-check');
+  const miniCheckBtn = document.getElementById('mini-check-btn');
+  const miniCheckRes = document.getElementById('mini-check-res');
+  const miniGen = document.getElementById('mini-gen');
+  const miniGenBtn = document.getElementById('mini-gen-btn');
+
+  // generator
+  const maxN = document.getElementById('max-n');
+  const methodSelect = document.getElementById('method-select');
+  const genBtn = document.getElementById('gen-btn');
+  const genStatus = document.getElementById('gen-status');
+  const sampleTable = document.querySelector('#sample-table tbody');
+  const exportCsv = document.getElementById('export-csv');
+  const clearPrimes = document.getElementById('clear-primes');
+
+  // checker
+  const checkInput = document.getElementById('check-input');
+  const checkBtn = document.getElementById('check-btn');
+  const checkResult = document.getElementById('check-result');
+
+  // visuals
+  const vizMode = document.getElementById('viz-mode');
+  const vizScale = document.getElementById('viz-scale');
+  const vizSpeed = document.getElementById('viz-speed');
+  const vizTwins = document.getElementById('viz-twins');
+  const renderViz = document.getElementById('render-viz');
+  const downloadViz = document.getElementById('download-viz');
+  const vizArea = document.getElementById('viz-area');
+
+  // analysis
+  const gapCanvas = document.getElementById('gap-canvas');
+  const densityCanvas = document.getElementById('density-canvas');
+
+  // quick nav
+  const openGenerator = document.getElementById('open-generator');
+  const openVisuals = document.getElementById('open-visuals');
+
+  // --- helpers ---
+  function firstName(full){
+    if(!full) return 'Scholar';
+    const parts = full.trim().split(/\s+/);
+    return parts[0] || full;
+  }
+
+  function applyName(full){
+    const first = firstName(full);
+    sessionName.textContent = first;
+    userTag.textContent = first;
+    const greeting = document.getElementById('greetingText');
+    if(greeting) greeting.textContent = `Welcome back, ${first} ✨`;
+  }
+
+  function showPage(key){
+    Object.values(pages).forEach(p => { p.classList.remove('active'); p.setAttribute('aria-hidden','true'); });
+    if(!pages[key]) return;
+    pages[key].classList.add('active'); pages[key].removeAttribute('aria-hidden');
+    navBtns.forEach(b => b.classList.toggle('active', b.dataset.page === key));
+    // clear visuals when leaving visuals page
+    if(key !== 'visuals') clearViz();
+    if(key === 'analysis') renderAnalysis();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // --- startup flow: splash -> sign-in -> main ---
+  function startFlow(){
+    // show splash
+    splash.style.display = 'flex';
+    splash.classList.remove('hidden');
+    signin.classList.remove('visible');
+    signin.style.opacity = 0; signin.style.visibility = 'hidden';
+
+    // ensure main is visible container-wise (pages hide/show)
+    document.querySelector('.main').style.display = 'block';
+
+    setTimeout(() => {
+      // hide splash
+      splash.classList.add('hidden');
+      setTimeout(()=> splash.style.display = 'none', 600);
+
+      // check saved name
+      const saved = localStorage.getItem(NAME_KEY);
+      if(saved){
+        applyName(saved);
+        showPage('home');
+      } else {
+        // show signin modal
+        signin.classList.add('visible');
+        signin.setAttribute('aria-hidden','false');
+        signin.style.display = 'flex';
+        signin.style.opacity = 1; signin.style.visibility = 'visible';
+        setTimeout(()=> signinName.focus(), 160);
+      }
+    }, SPLASH_MS);
+  }
+
+  // sign-in submit
+  signinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = (signinName.value || '').trim();
+    if(!val){ signinName.focus(); return; }
+    localStorage.setItem(NAME_KEY, val);
+    applyName(val);
+    signin.classList.remove('visible');
+    signin.style.opacity = 0; signin.style.visibility = 'hidden';
+    setTimeout(()=> signin.style.display='none', 300);
+    showPage('home');
+  });
+
+  // allow Enter in name input
+  signinName.addEventListener('keydown', (e) => { if(e.key === 'Enter') signinSubmit.click(); });
+
+  // --- sidebar collapse ---
+  collapseBtn.addEventListener('click', () => {
+    const collapsed = sidebar.classList.toggle('collapsed');
+    const mainEl = document.querySelector('.main');
+    if(collapsed) mainEl.classList.add('collapsed'); else mainEl.classList.remove('collapsed');
+    collapseBtn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+    setTimeout(()=> window.dispatchEvent(new Event('resize')), 220);
+  });
+
+  function responsiveCollapse(){
+    if(window.innerWidth < 720){
+      if(!sidebar.classList.contains('collapsed')){
+        sidebar.classList.add('collapsed');
+        document.querySelector('.main').classList.add('collapsed');
+      }
+    } else {
+      if(sidebar.classList.contains('collapsed')){
+        sidebar.classList.remove('collapsed');
+        document.querySelector('.main').classList.remove('collapsed');
+      }
+    }
+  }
+  window.addEventListener('resize', responsiveCollapse);
+
+  // nav wiring
+  navBtns.forEach(btn => btn.addEventListener('click', ()=> showPage(btn.dataset.page)));
+  openGenerator.addEventListener('click', ()=> { showPage('generator'); maxN.focus(); });
+  openVisuals.addEventListener('click', ()=> showPage('visuals'));
+
+  // quick home widgets
+  miniCheckBtn.addEventListener('click', ()=> {
+    const v = (miniCheck.value || '').trim();
+    if(!v) return alert('Enter a number');
+    const ok = isPrimeDet(v);
+    miniCheckRes.textContent = ok ? `${v} — PRIME` : `${v} — COMPOSITE`;
+  });
+  miniGenBtn.addEventListener('click', ()=> {
+    const n = parseInt((miniGen.value||''), 10);
+    if(!n || n < 2) return alert('Enter N ≥ 2');
+    showPage('generator'); maxN.value = n; genBtn.click();
+  });
+
+  // --- Worker script (sieve) ---
+  const workerCode = `
+  self.addEventListener('message', (ev) => {
+    const data = ev.data;
+    if(data.cmd === 'sieve'){
+      const n = data.limit | 0;
+      const method = data.method || 'eratosthenes';
+      try {
+        if(n < 2){ postMessage({status:'done', primes: []}); return; }
+        if(method === 'eratosthenes'){
+          const sieve = new Uint8Array(n+1); sieve.fill(1); sieve[0]=0; sieve[1]=0;
+          const r = Math.floor(Math.sqrt(n));
+          for(let p=2;p<=r;p++){
+            if(sieve[p]) for(let j=p*p;j<=n;j+=p) sieve[j]=0;
+          }
+          const primes = [];
+          for(let i=2;i<=n;i++) if(sieve[i]) primes.push(i);
+          postMessage({status:'done', primes});
+        } else if(method === 'atkin'){
+          const sieve = new Uint8Array(n+1);
+          const r = Math.floor(Math.sqrt(n));
+          for(let x=1;x<=r;x++){
+            for(let y=1;y<=r;y++){
+              let num = 4*x*x + y*y;
+              if(num <= n && (num%12 === 1 || num%12 === 5)) sieve[num] ^= 1;
+              num = 3*x*x + y*y;
+              if(num <= n && (num%12 === 7)) sieve[num] ^= 1;
+              num = 3*x*x - y*y;
+              if(x > y && num <= n && (num%12 === 11)) sieve[num] ^= 1;
+            }
+          }
+          for(let i=5;i<=r;i++){
+            if(sieve[i]){
+              const ii = i*i;
+              for(let k=ii;k<=n;k+=ii) sieve[k]=0;
+            }
+          }
+          const primes = [];
+          if(2 <= n) primes.push(2);
+          if(3 <= n) primes.push(3);
+          for(let i=5;i<=n;i++) if(sieve[i]) primes.push(i);
+          postMessage({status:'done', primes});
+        } else postMessage({status:'error', message:'unknown method'});
+      } catch(err){
+        postMessage({status:'error', message: err.toString()});
+      }
+    }
+  });
+  `;
+  function createWorker(){
+    try {
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      return new Worker(URL.createObjectURL(blob));
+    } catch(e){
+      console.warn('Worker creation failed:', e);
+      return null;
+    }
+  }
+
+  // generator logic
+  genBtn.addEventListener('click', ()=> {
+    const n = Math.max(2, Math.min(5000000, parseInt(maxN.value || '20000', 10)));
+    const method = methodSelect.value;
+    genStatus.textContent = `Generating primes ≤ ${n.toLocaleString()} …`;
+    genBtn.disabled = true;
+    if(worker) try{ worker.terminate(); }catch(e){}
+    worker = createWorker();
+    if(!worker){ genStatus.textContent = 'Web Worker not available.'; genBtn.disabled=false; return; }
+    worker.onmessage = (ev) => {
+      const d = ev.data;
+      if(d.status === 'done'){
+        primes = d.primes;
+        genStatus.textContent = `Done — ${primes.length.toLocaleString()} primes found (≤ ${n.toLocaleString()})`;
+        genBtn.disabled = false;
+        renderSample();
+        updateStats();
+      } else {
+        genStatus.textContent = 'Error: ' + (d.message || 'unknown');
+        genBtn.disabled = false;
+      }
+    };
+    worker.postMessage({ cmd: 'sieve', limit: n, method });
+  });
+
+  function renderSample(){
+    sampleTable.innerHTML = '';
+    const limit = Math.min(50, primes.length);
+    for(let i=0;i<limit;i++){
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.textContent = i+1;
+      const td2 = document.createElement('td'); td2.textContent = primes[i];
+      tr.appendChild(td1); tr.appendChild(td2); sampleTable.appendChild(tr);
+    }
+  }
+
+  exportCsv.addEventListener('click', ()=> {
+    if(!primes || primes.length === 0){ alert('No primes to export — generate first.'); return; }
+    let csv = 'index,prime\n';
+    for(let i=0;i<primes.length;i++) csv += `${i+1},${primes[i]}\n`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'primes.csv'; a.click(); URL.revokeObjectURL(url);
+  });
+
+  clearPrimes.addEventListener('click', ()=> {
+    primes = []; sampleTable.innerHTML = ''; genStatus.textContent = 'Idle'; updateStats();
+  });
+
+  function updateStats(){
+    document.getElementById('statCount').textContent = `Primes: ${primes.length.toLocaleString()}`;
+    document.getElementById('statLargest').textContent = `Largest: ${primes.length ? primes[primes.length-1].toLocaleString() : '—'}`;
+    if(primes.length > 1){
+      let s=0;
+      for(let i=1;i<primes.length;i++) s += primes[i] - primes[i-1];
+      document.getElementById('statAvg').textContent = `Avg gap: ${(s/(primes.length-1)).toFixed(2)}`;
+    } else document.getElementById('statAvg').textContent = 'Avg gap: —';
+  }
+
+  // deterministic Miller-Rabin (BigInt)
+  function modPow(base, exp, mod){
+    base = BigInt(base) % BigInt(mod);
+    let result = 1n;
+    let e = BigInt(exp);
+    let m = BigInt(mod);
+    while(e > 0n){
+      if(e & 1n) result = (result * base) % m;
+      base = (base * base) % m;
+      e >>= 1n;
+    }
+    return result;
+  }
+  function isPrimeDet(x){
+    try{
+      let n = BigInt(x);
+      if(n < 2n) return false;
+      const small = [2n,3n,5n,7n,11n,13n,17n,19n,23n,29n];
+      for(const p of small) if(n === p) return true;
+      for(const p of small) if(n % p === 0n) return false;
+      let d = n - 1n; let s = 0n;
+      while((d & 1n) === 0n){ d >>= 1n; s++; }
+      const witnesses = [2n,325n,9375n,28178n,450775n,9780504n,1795265022n];
+      for(const a of witnesses){
+        if(a % n === 0n) continue;
+        let x = modPow(a, d, n);
+        if(x === 1n || x === n-1n) continue;
+        let composite = true;
+        for(let r=1n; r<s; r++){
+          x = (x * x) % n;
+          if(x === n-1n){ composite = false; break; }
+        }
+        if(composite) return false;
+      }
+      return true;
+    } catch(e){ return false; }
+  }
+
+  checkBtn.addEventListener('click', ()=> {
+    const raw = (checkInput.value || '').trim();
+    if(!raw){ alert('Enter a number'); return; }
+    checkResult.textContent = 'Testing…';
+    setTimeout(()=> {
+      const ok = isPrimeDet(raw);
+      checkResult.textContent = ok ? `${raw} — PRIME ✨` : `${raw} — COMPOSITE ✗`;
+      checkResult.style.color = ok ? '#9fe9c9' : '#ffb5b5';
+    }, 40);
+  });
+
+  // home quick check
+  miniCheckBtn.addEventListener('click', ()=> {
+    const v = (miniCheck.value || '').trim();
+    if(!v) return alert('Enter a number');
+    const ok = isPrimeDet(v);
+    miniCheckRes.textContent = ok ? `${v} — PRIME` : `${v} — COMPOSITE`;
+  });
+
+  // --- Visuals implementations ---
+
+  function clearViz(){
+    if(vizAnim && vizAnim.cancel) try{ vizAnim.cancel(); }catch(e){}
+    vizAnim = null;
+    vizArea.innerHTML = '';
+  }
+
+  // Ulam spiral (grid visualization)
+  function renderUlam(){
+    clearViz();
+    if(!primes || primes.length === 0){ vizArea.innerHTML = '<div style="color:var(--muted)">Generate primes first.</div>'; return; }
+
+    const scale = parseInt(vizScale.value, 10) || 160;
+    const size = Math.min(1200, Math.max(200, scale*4)); // grid cells per side effect
+    // We'll draw an NxN grid sized to container
+    const containerW = Math.max(320, Math.min(900, vizArea.clientWidth || 700));
+    const containerH = Math.max(320, Math.min(900, vizArea.clientHeight || 480));
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(2, devicePixelRatio || 1);
+    canvas.width = containerW * ratio; canvas.height = containerH * ratio;
+    canvas.style.width = containerW + 'px'; canvas.style.height = containerH + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+    vizArea.appendChild(canvas);
+
+    // compute grid dimension
+    const gridDim = Math.max(51, Math.round(Math.sqrt(Math.min(size, 2000))));
+    const cellW = containerW / gridDim;
+    const cellH = containerH / gridDim;
+
+    const maxN = gridDim * gridDim;
+    const primeSet = new Set(primes);
+
+    // fill background
+    ctx.fillStyle = '#071426'; ctx.fillRect(0,0,containerW,containerH);
+
+    // center coordinates
+    let x = Math.floor(gridDim/2), y = Math.floor(gridDim/2);
+    let dx = 0, dy = -1;
+
+    for(let n=1; n<=maxN; n++){
+      if(x>=0 && x<gridDim && y>=0 && y<gridDim){
+        const px = x * cellW;
+        const py = y * cellH;
+        if(primeSet.has(n)){
+          ctx.fillStyle = 'rgba(197,164,95,0.96)';
+          const r = Math.max(1, Math.min(cellW, cellH) * 0.32);
+          ctx.beginPath(); ctx.arc(px + cellW/2, py + cellH/2, r, 0, Math.PI*2); ctx.fill();
+        } else {
+          // faint background point
+          ctx.fillStyle = 'rgba(255,255,255,0.01)';
+          ctx.fillRect(px + cellW/2, py + cellH/2, 1, 1);
+        }
+      }
+      if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1-y)) {
+        const t = dx; dx = -dy; dy = t;
+      }
+      x += dx; y += dy;
+    }
+  }
+
+  // Modular circle (plot primes mod M on polar coords)
+  function renderModular(){
+    clearViz();
+    if(!primes || primes.length === 0){ vizArea.innerHTML = '<div style="color:var(--muted)">Generate primes first.</div>'; return; }
+    const mod = 360; // fixed
+    const containerW = Math.max(320, Math.min(900, vizArea.clientWidth || 700));
+    const size = Math.min(containerW, 700);
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(2, devicePixelRatio || 1);
+    canvas.width = size * ratio; canvas.height = size * ratio;
+    canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+    vizArea.appendChild(canvas);
+
+    // background
+    ctx.fillStyle = '#071426'; ctx.fillRect(0,0,size,size);
+    const cx = size/2, cy = size/2, R = size/2 - 20;
+
+    // draw circle
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1; ctx.stroke();
+
+    const points = primes.slice(0, 2000).map(p => ({ angle: (p % mod) * (2*Math.PI/mod), p }));
+    for(const pt of points){
+      const ang = pt.angle;
+      const r = R * (0.7 + 0.3 * Math.random());
+      const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(197,164,95,0.95)';
+      ctx.arc(x, y, 2 + Math.random()*1.6, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Spiral galaxy (artistic) - Vogel-like radial placement with animation
+  function renderSpiral(){
+    clearViz();
+    if(!primes || primes.length === 0){ vizArea.innerHTML = '<div style="color:var(--muted)">Generate primes first.</div>'; return; }
+
+    const scale = Math.min(300, Math.max(120, parseInt(vizScale.value, 10) || 160));
+    const speed = parseFloat(vizSpeed.value) || 0.6;
+    const highlightTwins = vizTwins.checked;
+
+    const containerW = Math.max(320, Math.min(900, vizArea.clientWidth || 700));
+    const containerH = Math.max(320, Math.min(700, vizArea.clientHeight || 480));
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(2, devicePixelRatio || 1);
+    canvas.width = containerW * ratio; canvas.height = containerH * ratio;
+    canvas.style.width = containerW + 'px'; canvas.style.height = containerH + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+    vizArea.appendChild(canvas);
+
+    const M = Math.min(12000, Math.max(800, Math.floor(scale * 6)));
+    const pset = new Set(primes);
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    const factor = (Math.min(containerW, containerH) / 2 - 24) / Math.sqrt(M);
+    const pos = new Array(M);
+    for(let k=1;k<=M;k++){
+      const theta = k * golden;
+      const r = Math.sqrt(k) * factor;
+      pos[k-1] = { k, x: containerW/2 + r * Math.cos(theta), y: containerH/2 + r * Math.sin(theta), isPrime: pset.has(k) };
+    }
+
+    const twinSet = new Set();
+    if(highlightTwins){
+      for(let i=0;i<M;i++){
+        const k = pos[i].k;
+        if(pset.has(k) && pset.has(k+2)) { twinSet.add(k); twinSet.add(k+2); }
+      }
+    }
+
+    // draw background
+    ctx.fillStyle = '#071426'; ctx.fillRect(0,0,containerW,containerH);
+
+    let t = 0;
+    let raf = null;
+    function frame(){
+      t += 0.02 * (1 + speed);
+      // translucent overlay for trail effect
+      ctx.fillStyle = 'rgba(4,6,12,0.12)'; ctx.fillRect(0,0,containerW,containerH);
+
+      // primes as glowing nodes
+      for(let i=0;i<pos.length;i++){
+        const p = pos[i];
+        if(!p.isPrime) continue;
+        const baseR = 1.2 + (Math.log(p.k+1)/Math.log(M+1))*2.4;
+        const pulse = 0.6 + 0.4 * Math.sin(t + i * 0.012);
+        const R = baseR * (1 + 0.6 * pulse);
+        ctx.beginPath();
+        ctx.fillStyle = twinSet.has(p.k) ? 'rgba(255,240,190,0.98)' : 'rgba(197,164,95,0.95)';
+        ctx.shadowColor = 'rgba(197,164,95,0.12)';
+        ctx.shadowBlur = twinSet.has(p.k) ? 8 : 3;
+        ctx.arc(p.x, p.y, R, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      // faint structural line
+      ctx.strokeStyle = 'rgba(197,164,95,0.02)'; ctx.lineWidth = 0.6;
+      ctx.beginPath(); let started=false;
+      for(let i=0;i<pos.length;i++){
+        const p = pos[i]; if(!p.isPrime) continue;
+        if(!started){ ctx.moveTo(p.x,p.y); started = true; } else ctx.lineTo(p.x,p.y);
+      }
+      ctx.stroke();
+
+      raf = requestAnimationFrame(frame);
+    }
+    frame();
+    vizAnim = { cancel: ()=> cancelAnimationFrame(raf) };
+  }
+
+  // Constellation map (grid with twin links)
+  function renderConstellation(){
+    clearViz();
+    if(!primes || primes.length === 0){ vizArea.innerHTML = '<div style="color:var(--muted)">Generate primes first.</div>'; return; }
+
+    const scale = Math.min(400, Math.max(120, parseInt(vizScale.value,10) || 160));
+    const highlightTwins = vizTwins.checked;
+    const containerW = Math.max(320, Math.min(900, vizArea.clientWidth || 700));
+    const containerH = Math.max(320, Math.min(700, vizArea.clientHeight || 480));
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(2, devicePixelRatio || 1);
+    canvas.width = containerW * ratio; canvas.height = containerH * ratio;
+    canvas.style.width = containerW + 'px'; canvas.style.height = containerH + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+    vizArea.appendChild(canvas);
+
+    ctx.fillStyle = '#071426'; ctx.fillRect(0,0,containerW,containerH);
+
+    const limit = Math.min(primes.length, Math.max(200, Math.floor(scale)));
+    const cols = Math.ceil(Math.sqrt(limit));
+    const rows = Math.ceil(limit / cols);
+    const pad = 24;
+    const cellW = (containerW - pad*2) / cols;
+    const cellH = (containerH - pad*2) / rows;
+
+    const pts = [];
+    for(let i=0;i<limit;i++){
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const jitterX = (Math.random()*0.2 - 0.1) * cellW;
+      const jitterY = (Math.random()*0.2 - 0.1) * cellH;
+      const x = pad + c*cellW + (r%2 ? cellW/2 : 0) + cellW/2 + jitterX;
+      const y = pad + r*cellH + cellH/2 + jitterY;
+      pts.push({ x, y, v: primes[i], idx: i });
+    }
+
+    const indexByValue = new Map();
+    for(let i=0;i<limit;i++) indexByValue.set(primes[i], i);
+
+    ctx.lineWidth = 1.4;
+    if(highlightTwins){
+      ctx.strokeStyle = 'rgba(197,164,95,0.95)';
+      for(let i=0;i<limit;i++){
+        const v = primes[i];
+        if(indexByValue.has(v+2)){
+          const a = pts[i], b = pts[indexByValue.get(v+2)];
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+      }
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1;
+      for(let gx = pad; gx <= containerW - pad; gx += Math.max(40, Math.floor(cellW/2))){
+        ctx.beginPath(); ctx.moveTo(gx,pad); ctx.lineTo(gx,containerH-pad); ctx.stroke();
+      }
+    }
+
+    ctx.font = '11px Inter'; ctx.fillStyle = '#9fb0bb';
+    for(let i=0;i<pts.length;i++){
+      const p = pts[i];
+      const twin = indexByValue.has(p.v+2) || indexByValue.has(p.v-2);
+      ctx.beginPath();
+      ctx.fillStyle = twin ? 'rgba(255,240,190,0.98)' : 'rgba(197,164,95,0.95)';
+      ctx.arc(p.x, p.y, twin ? 4.8 : 3.2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#9fb0bb';
+      if(i % Math.ceil(Math.max(1, pts.length/28)) === 0) ctx.fillText(String(p.v), p.x + 6, p.y + 4);
+    }
+  }
+
+  renderViz.addEventListener('click', ()=> {
+    const mode = vizMode.value;
+    if(mode === 'ulam') renderUlam();
+    else if(mode === 'modular') renderModular();
+    else if(mode === 'spiral') renderSpiral();
+    else renderConstellation();
+  });
+
+  downloadViz.addEventListener('click', ()=> {
+    const canvas = vizArea.querySelector('canvas');
+    if(!canvas){ alert('Render a visualization first'); return; }
+    const data = canvas.toDataURL('image/png');
+    const a = document.createElement('a'); a.href = data; a.download = 'primes_visual.png'; a.click();
+  });
+
+  // --- Analysis charts: gap histogram & density ---
+  function renderAnalysis(){
+    if(!primes || primes.length === 0){
+      gapCanvas.getContext('2d').clearRect(0,0,gapCanvas.width,gapCanvas.height);
+      densityCanvas.getContext('2d').clearRect(0,0,densityCanvas.width,densityCanvas.height);
+      gapCanvas.getContext('2d').font = '14px Inter'; gapCanvas.getContext('2d').fillStyle = '#9fb0bb';
+      gapCanvas.getContext('2d').fillText('Generate primes to view the gap histogram.', 10, 30);
+      densityCanvas.getContext('2d').font = '14px Inter'; densityCanvas.getContext('2d').fillStyle = '#9fb0bb';
+      densityCanvas.getContext('2d').fillText('Generate primes to view the density chart.', 10, 30);
+      return;
+    }
+
+    // prime gaps
+    const ctxG = gapCanvas.getContext('2d');
+    const wG = gapCanvas.width, hG = gapCanvas.height;
+    ctxG.clearRect(0,0,wG,hG);
+    ctxG.scale(1,1);
+
+    const gaps = [];
+    for(let i=1;i<primes.length;i++) gaps.push(primes[i]-primes[i-1]);
+    const maxGap = Math.max(10, ...gaps);
+    const bins = 40;
+    const counts = new Array(bins).fill(0);
+    for(const g of gaps){
+      const bi = Math.min(bins-1, Math.floor(g / (maxGap / bins)));
+      counts[bi]++;
+    }
+    const maxCount = Math.max(...counts);
+
+    // draw bars
+    const pad = 40;
+    const plotW = wG - pad*2, plotH = hG - pad*2;
+    ctxG.fillStyle = '#071426'; ctxG.fillRect(0,0,wG,hG);
+    // axes labels
+    ctxG.fillStyle = '#9fb0bb'; ctxG.font = '12px Inter';
+    ctxG.fillText('Gap size', wG/2 - 20, hG - 8);
+    ctxG.fillText('Frequency', 6, 20);
+
+    for(let i=0;i<bins;i++){
+      const bx = pad + (i * plotW / bins);
+      const bw = Math.max(1, plotW / bins - 3);
+      const bh = (counts[i] / (maxCount || 1)) * plotH;
+      ctxG.fillStyle = 'rgba(197,164,95,0.9)';
+      ctxG.fillRect(bx, pad + (plotH - bh), bw, bh);
+    }
+
+    // density chart
+    const ctxD = densityCanvas.getContext('2d');
+    const wD = densityCanvas.width, hD = densityCanvas.height;
+    ctxD.clearRect(0,0,wD,hD);
+    ctxD.fillStyle = '#071426'; ctxD.fillRect(0,0,wD,hD);
+
+    // intervals
+    const intervals = 120;
+    const maxNval = primes[primes.length-1];
+    const intervalSize = Math.max(1, Math.floor(maxNval / intervals));
+    const densities = [];
+    for(let i=0;i<intervals;i++){
+      const start = i * intervalSize;
+      const end = (i+1) * intervalSize;
+      let count = 0;
+      // binary search-like approach for faster count
+      // naive count is okay for moderate sizes
+      for(const p of primes) if(p >= start && p < end) count++;
+      densities.push(count / (intervalSize || 1));
+    }
+    const maxDensity = Math.max(...densities) || 1;
+    // draw line
+    ctxD.strokeStyle = 'rgba(197,164,95,0.95)'; ctxD.lineWidth = 2; ctxD.beginPath();
+    for(let i=0;i<intervals;i++){
+      const x = (i / (intervals-1)) * (wD - 40) + 20;
+      const y = hD - 20 - (densities[i] / maxDensity) * (hD - 60);
+      if(i===0) ctxD.moveTo(x,y); else ctxD.lineTo(x,y);
+    }
+    ctxD.stroke();
+
+    // small axes text
+    ctxD.fillStyle = '#9fb0bb'; ctxD.font = '12px Inter';
+    ctxD.fillText(`Density (primes per ${intervalSize.toLocaleString()})`, 10, 16);
+  }
+
+  // --- keyboard shortcuts convenience ---
+  document.getElementById('mini-check').addEventListener('keydown', (e)=>{ if(e.key==='Enter') miniCheckBtn.click(); });
+  checkInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkBtn.click(); });
+  signinName.addEventListener('keydown', (e)=>{ if(e.key==='Enter') signinSubmit.click(); });
+
+  // --- initial startup ---
+  // make main container visible
+  document.querySelector('.main').style.display = 'block';
+  // start flow
+  startFlow();
+
+  // reflect saved name if any
+  const savedName = localStorage.getItem(NAME_KEY);
+  if(savedName) applyName(savedName);
+
+  // cleanup worker on unload
+  window.addEventListener('beforeunload', ()=> { if(worker) try{ worker.terminate(); }catch(e){} });
+})();
+
+/* End of main closure */
+</script>
+</body>
+</html>
