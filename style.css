@@ -1,0 +1,146 @@
+/* ================================
+   AESTHETIC ENHANCEMENTS
+   Designed to blend with PrimeScope’s base CSS
+   ================================ */
+
+/* ---- Typography ---- */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500&display=swap');
+
+h1, h2, h3, h4 {
+  font-family: 'Merriweather', serif;
+  letter-spacing: 0.5px;
+  color: #f4f1e9; /* soft ivory tone */
+}
+
+body, p, span, a, li {
+  font-family: 'Inter', sans-serif;
+  line-height: 1.7;
+  color: #e6e6e6;
+}
+
+/* ---- Background ---- */
+body {
+  background: linear-gradient(135deg, #0a2342 20%, #0e1a2b 80%);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ---- Navbar / Sidebar ---- */
+.sidebar, nav {
+  background: rgba(10, 35, 66, 0.95);
+  border-right: 1px solid rgba(255, 215, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+nav a, .sidebar a {
+  color: #dcdcdc;
+  text-decoration: none;
+  display: block;
+  padding: 12px 20px;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+nav a:hover, .sidebar a:hover {
+  color: #b8860b; /* gold accent */
+  transform: translateX(4px);
+}
+
+/* ---- Buttons ---- */
+button, .btn {
+  background: linear-gradient(135deg, #001f3f, #b8860b);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover, .btn:hover {
+  background: linear-gradient(135deg, #b8860b, #001f3f);
+  box-shadow: 0 0 10px rgba(184, 134, 11, 0.5);
+}
+
+/* ---- Plotly Charts ---- */
+.js-plotly-plot .plotly, .plotly {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.plotly .main-svg {
+  background-color: transparent !important;
+}
+
+/* ---- Fade Animations ---- */
+.fade {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.8s ease-in-out;
+}
+
+.fade.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Scroll Reveal Compatibility ---- */
+.reveal {
+  visibility: hidden;
+}
+
+.reveal.visible {
+  visibility: visible;
+  animation: fadeInUp 0.9s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Responsive Design ---- */
+@media (max-width: 900px) {
+  body {
+    font-size: 15px;
+  }
+
+  .sidebar, nav {
+    position: fixed;
+    width: 80%;
+    max-width: 300px;
+    left: -100%;
+    top: 0;
+    height: 100vh;
+    transition: left 0.4s ease;
+    z-index: 999;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .content {
+    padding-left: 20px !important;
+  }
+
+  button, .btn {
+    padding: 8px 15px;
+  }
+}
+
+/* ---- Footer ---- */
+footer {
+  text-align: center;
+  padding: 20px;
+  color: #d4af37;
+  border-top: 1px solid rgba(255, 215, 0, 0.1);
+  background: rgba(10, 35, 66, 0.8);
+  font-family: 'Inter', sans-serif;
+}
