@@ -1,0 +1,16 @@
+{
+  "name": "PrimeScope",
+  "short_name": "PrimeScope",
+  "start_url": "/PrimeScope/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#0f0f0f",
+  "description": "PrimeScope lets you visualize and explore the hidden beauty of prime numbers.",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
