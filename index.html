@@ -1135,5 +1135,41 @@ input[type="text"], input[type="number"], select{ padding:10px; border-radius:8p
 <p style="text-align:center; margin-top:20px;">
   <img src="https://visitor-badge.laobi.icu/badge?page_id=japhethodameboamah-debug.PrimeScope" alt="visitors"/>
 </p>
+   <style>
+.sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh;
+  width: 250px; background:#0b1222; color:#fff;
+  transition: all .3s ease; overflow:hidden;
+}
+.sidebar.collapsed {width:70px;}
+.sidebar button {display:flex;align-items:center;gap:8px;
+  width:100%;background:none;border:none;color:#ccc;
+  padding:10px 16px;text-align:left;cursor:pointer;
+  transition:.3s;border-radius:6px;}
+.sidebar button:hover {background:rgba(255,255,255,.1);color:#d4af37;}
+.sidebar .brand {padding:18px;font-weight:bold;color:#d4af37;}
+.collapse-btn {margin:16px;width:calc(100% - 32px);
+  background:rgba(255,255,255,.1);}
+main {margin-left:250px;transition:margin-left .3s;}
+.sidebar.collapsed + main {margin-left:70px;}
+</style>
+
+<div class="sidebar" id="sidebar">
+  <div class="brand">⚡ PrimeScope</div>
+  <button>🏠 Home</button>
+  <button>⚙️ Generator</button>
+  <button>📊 Visuals</button>
+  <button>🧠 Analysis</button>
+  <button>🧰 Tools</button>
+  <button>📘 Learn</button>
+  <button class="collapse-btn" onclick="toggleSidebar()">⬅️ Collapse</button>
+</div>
+
+<script>
+function toggleSidebar(){
+  const s=document.getElementById('sidebar');
+  s.classList.toggle('collapsed');
+}
+</script>
 </body>
 </html>
