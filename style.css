@@ -1,4 +1,4 @@
-/* ================================
+8/* ================================
    AESTHETIC ENHANCEMENTS
    Designed to blend with PrimeScope’s base CSS
    ================================ */
@@ -12,7 +12,7 @@ h1, h2, h3, h4 {
   color: #f4f1e9; /* soft ivory tone */
 }
 
-body, p, span, a, li {
+body, p, span, a, li 
   font-family: 'Inter', sans-serif;
   line-height: 1.7;
   color: #e6e6e6;
@@ -143,4 +143,20 @@ footer {
   border-top: 1px solid rgba(255, 215, 0, 0.1);
   background: rgba(10, 35, 66, 0.8);
   font-family: 'Inter', sans-serif;
+}
+/* Mobile layout */
+@media (max-width: 768px) {
+  .sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 1rem;
+  }
 }
