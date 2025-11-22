@@ -105,35 +105,6 @@ button:hover, .btn:hover {
   }
 }
 
-/* ---- Responsive Design ---- */
-@media (max-width: 900px) {
-  body {
-    font-size: 15px;
-  }
-
-  .sidebar, nav {
-    position: fixed;
-    width: 80%;
-    max-width: 300px;
-    left: -100%;
-    top: 0;
-    height: 100vh;
-    transition: left 0.4s ease;
-    z-index: 999;
-  }
-
-  .sidebar.open {
-    left: 0;
-  }
-
-  .content {
-    padding-left: 20px !important;
-  }
-
-  button, .btn {
-    padding: 8px 15px;
-  }
-}
 
 /* ---- Footer ---- */
 footer {
