@@ -56,6 +56,116 @@ body, p, span, a, li {
   transform: translateX(4px);
 }
 
+/* ============================================
+   REFINED SIDEBAR — smoother, modern, elegant
+   ============================================ */
+
+/* Slide + blur + glow on hover */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg,
+      rgba(255,255,255,0.06),
+      rgba(255,255,255,0.015)
+  );
+  border-right: 1px solid var(--card-border);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 8px 0 36px rgba(0,0,0,0.55);
+  
+  /* NEW animation */
+  animation: sidebarFadeIn 0.6s ease forwards;
+  transform: translateX(-22px);
+  opacity: 0;
+
+  transition:
+    width var(--trans-med) ease,
+    backdrop-filter 0.3s ease,
+    background 0.3s ease;
+}
+
+@keyframes sidebarFadeIn {
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slim version with buttery smooth shrink */
+.sidebar.slim {
+  width: var(--sidebar-slim);
+  backdrop-filter: blur(8px);
+}
+
+/* NAV BUTTON animations */
+.navbtn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.22s ease;
+}
+
+.navbtn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at left, rgba(197,164,95,0.14), transparent);
+  transform: translateX(-80%);
+  transition: transform 0.35s ease;
+  pointer-events: none;
+}
+
+.navbtn:hover::before {
+  transform: translateX(0);
+}
+
+/* floating micro-slide on hover */
+.navbtn:hover {
+  transform: translateX(6px);
+  color: var(--gold);
+}
+
+/* ACTIVE gets a golden left bar glow */
+.navbtn.active {
+  background: linear-gradient(90deg, rgba(197,164,95,0.15), rgba(197,164,95,0.04));
+  font-weight: 700;
+}
+
+.navbtn.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  background: var(--gold);
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(197,164,95,0.55);
+}
+
+/* Collapse button hover glow */
+.collapse-btn {
+  transition: all 0.25s ease;
+}
+
+.collapse-btn:hover {
+  background: rgba(197,164,95,0.08);
+  color: var(--gold);
+}
+
+/* CONTENT SHIFT — smoother */
+.main {
+  transition: margin-left 0.35s cubic-bezier(.22,.61,.36,1);
+}
+
+.main.slim {
+  margin-left: var(--sidebar-slim);
+}
 /* =========================================
    MAIN CONTENT
 ========================================= */
